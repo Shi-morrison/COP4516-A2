@@ -23,8 +23,7 @@ public class minotaur_vase {
     public static void main(String[] args) {
         ExecutorService executor = Executors.newFixedThreadPool(NUM_GUESTS);
         for (int i = 0; i < NUM_GUESTS; i++) {
-            final int threadIndex = i;
-            executor.submit(() -> admireVase(threadIndex));
+            executor.submit(new Guest(i));
         }
         executor.shutdown();
         try {
@@ -34,30 +33,36 @@ public class minotaur_vase {
         }
 
         System.out.println("All guests have viewed the vase.");
-
     }
 
-    private static void admireVase(int threadIndex) {
-        long threadId = Thread.currentThread().getId();
+    private static class Guest implements Runnable {
+        private final int threadIndex;
 
-        while (guestsVisited.size() < NUM_GUESTS) {
-            mutex.lock();
+        Guest(int threadIndex) {
+            this.threadIndex = threadIndex;
+        }
 
-            try {
-                if (roomStatus == Status.AVAILABLE && !guestsVisited.contains(threadId)) {
-                    roomStatus = Status.BUSY;
-                    System.out.println("Guest #" + threadIndex + " is admiring the vase");
-                    try {
-                        Thread.sleep(generateRandomNumber(10, 500));
-                    } catch (InterruptedException e) {
-                        Thread.currentThread().interrupt();
+        @Override
+        public void run() {
+            long threadId = Thread.currentThread().getId();
+
+            while (guestsVisited.size() < NUM_GUESTS) {
+                mutex.lock();
+                try {
+                    if (roomStatus == Status.AVAILABLE && !guestsVisited.contains(threadId)) {
+                        roomStatus = Status.BUSY;
+                        System.out.println("Guest #" + threadIndex + " is admiring the vase");
+                        try {
+                            Thread.sleep(generateRandomNumber(10, 500));
+                        } catch (InterruptedException e) {
+                            Thread.currentThread().interrupt();
+                        }
+                        roomStatus = Status.AVAILABLE;
+                        guestsVisited.add(threadId);
                     }
-                    roomStatus = Status.AVAILABLE;
-
-                    guestsVisited.add(threadId);
+                } finally {
+                    mutex.unlock();
                 }
-            } finally {
-                mutex.unlock();
             }
         }
     }
